@@ -3,19 +3,20 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
+const accessToken = process.env.ACCESS_TOKEN;
+
 //local modules
 const { UserModel } = require("./models");
 
 //asynchronous function for user registration
 async function register(req, res) {
   const saltRounds = 10;
-  const accessToken = process.env.ACCESS_TOKEN;
 
   try {
     const { password, email } = req.body;
     const userCount = await UserModel.countDocuments({ email: email });
     if (userCount >= 1) {
-      res.status(401);
+      res.status(400);
       res.json({
         error: "email already exists",
       });
@@ -47,7 +48,45 @@ async function register(req, res) {
 
 //asynchronous function for login
 async function login(req, res) {
-  res.json(req.body || { message: "send the data in json format" });
+  const { email, password } = req.body;
+  if (!email) {
+    res.status(400);
+    res.json({ error: "email is required" });
+    return;
+  }
+  if (!password) {
+    res.status(400);
+    res.json({
+      error: "password is required",
+    });
+  }
+  const object = await UserModel.findOne({ email: email });
+  //checking if email exist or not
+  if (!object) {
+    res.status(400);
+    res.json({
+      error: "email doesn't exist",
+    });
+    return;
+  }
+  //check if the password matches or not
+  const passwordMatches = await bcrypt.compare(password, object.password);
+  if (passwordMatches) {
+    //creating the token
+    const token = await jwt.sign(email, accessToken);
+    res.json({
+      token: token,
+    });
+    return;
+  }
+  //returning error if password didn't matched
+  else {
+    res.status(400);
+    res.json({
+      error: "password didn't matched",
+    });
+    return;
+  }
 }
 
 //module exports

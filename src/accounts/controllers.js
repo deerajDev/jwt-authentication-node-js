@@ -8,6 +8,7 @@ const accessToken = process.env.ACCESS_TOKEN;
 //local modules
 const { UserModel } = require("./models");
 
+//================
 //asynchronous function for user registration
 async function register(req, res) {
   const saltRounds = 10;
@@ -29,10 +30,11 @@ async function register(req, res) {
     const user = new UserModel({
       email: email,
       password: hashedPassword,
+      numDevices: 1,
     });
 
     //saving user to the database
-    await user.save("");
+    await user.save();
 
     //creating jwt token with payload of username
     const token = await jwt.sign(email, accessToken);
@@ -46,6 +48,7 @@ async function register(req, res) {
   }
 }
 
+//====================
 //asynchronous function for login
 async function login(req, res) {
   const { email, password } = req.body;
@@ -61,6 +64,8 @@ async function login(req, res) {
     });
   }
   const object = await UserModel.findOne({ email: email });
+  console.log(object);
+
   //checking if email exist or not
   if (!object) {
     res.status(400);
@@ -73,11 +78,21 @@ async function login(req, res) {
   const passwordMatches = await bcrypt.compare(password, object.password);
   if (passwordMatches) {
     //creating the token
-    const token = await jwt.sign(email, accessToken);
-    res.json({
-      token: token,
-    });
-    return;
+    if (object.numDevices >= 5) {
+      res.status(401);
+      res.json({
+        error: "number of devices logged in exceeds 5",
+      });
+      return;
+    } else {
+      //incrementing the number of devices logged in
+      await UserModel.updateOne({ email: email }, { $inc: { numDevices: 1 } });
+      const token = await jwt.sign(email, accessToken);
+      res.json({
+        token: token,
+      });
+      return;
+    }
   }
   //returning error if password didn't matched
   else {

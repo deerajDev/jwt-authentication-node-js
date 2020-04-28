@@ -1,3 +1,4 @@
 node_modules
 myScripts
 .env
+.vscode
